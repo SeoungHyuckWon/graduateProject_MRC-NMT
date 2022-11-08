@@ -6,3 +6,5 @@
 원성혁: 팀장 및 머신러닝 모델링 \n 
 고원재: 크롤링 및 데이터구축 \n
 황인권: 데이터전처리 및 Front-End 개발
+
+[![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=SeoungHyuckWon)](https://github.com/SeoungHyuckWon/github-readme-stats)

@@ -26,6 +26,7 @@ from torchinfo import summary
 
 from transformers import AutoModelForQuestionAnswering, AutoTokenizer
 
+
 def read_dev_klue(path):
     with open(path, 'rb') as f:
         klue_dict = json.load(f)
@@ -41,15 +42,17 @@ def read_dev_klue(path):
                 temp_answer = []
                 for answer in qa['answers']:
                     temp_answer.append(answer['text'])
-                if len(temp_answer) != 0: # answers의 길이가 0 == 답변할 수 없는 질문
+                if len(temp_answer) != 0:  # answers의 길이가 0 == 답변할 수 없는 질문
                     contexts.append(context)
                     questions.append(question)
                     answers.append(temp_answer)
 
     return contexts, questions, answers
 
+
 def prediction(contexts, questions):
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    device = torch.device(
+        'cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     model.to(device)
     model.eval()
@@ -59,20 +62,24 @@ def prediction(contexts, questions):
     with torch.no_grad():
         for context, question in zip(contexts, questions):
             encodings = tokenizer(context, question, max_length=512, truncation=True,
-                                     padding="max_length", return_token_type_ids=False)
-            encodings = {key: torch.tensor([val]) for key, val in encodings.items()}
+                                  padding="max_length", return_token_type_ids=False)
+            encodings = {key: torch.tensor([val])
+                         for key, val in encodings.items()}
 
             input_ids = encodings["input_ids"].to(device)
             attention_mask = encodings["attention_mask"].to(device)
 
             outputs = model(input_ids, attention_mask=attention_mask)
             start_logits, end_logits = outputs.start_logits, outputs.end_logits
-            token_start_index, token_end_index = start_logits.argmax(dim=-1), end_logits.argmax(dim=-1)
+            token_start_index, token_end_index = start_logits.argmax(
+                dim=-1), end_logits.argmax(dim=-1)
             pred_ids = input_ids[0][token_start_index: token_end_index + 1]
             pred = tokenizer.decode(pred_ids)
             result.append(pred)
 
     return result
+
+
 def em_evalutate(prediction_answers, real_answers):
     total = len(prediction_answers)
     exact_match = 0
@@ -81,6 +88,8 @@ def em_evalutate(prediction_answers, real_answers):
             exact_match += 1
 
     return (exact_match/total) * 100
+
+
 if __name__ == '__main__':
     start_visualize = []
     end_visualize = []
@@ -93,12 +102,14 @@ if __name__ == '__main__':
         c = 0
         # for sample in tqdm(test_dataset, "Testing"):
         for sample in tqdm(indexed_test_dataset, "Testing"):
-            input_ids, token_type_ids = [torch.tensor(sample[key], dtype=torch.long, device="cuda") for key in ("input_ids", "token_type_ids")]
+            input_ids, token_type_ids = [torch.tensor(
+                sample[key], dtype=torch.long, device="cuda") for key in ("input_ids", "token_type_ids")]
             # print(sample)
 
             model.eval()
             with torch.no_grad():
-                output = model(input_ids=input_ids[None, :], token_type_ids=token_type_ids[None, :])
+                output = model(
+                    input_ids=input_ids[None, :], token_type_ids=token_type_ids[None, :])
 
             start_logits = output.start_logits
             end_logits = output.end_logits
@@ -111,7 +122,8 @@ if __name__ == '__main__':
 
             # 토큰 길이 8까지만
             for row in range(len(start_prob) - 8):
-                probability[row] = torch.cat((probability[row][:8+row].cpu(), torch.Tensor([0] * (len(start_prob)-(8+row))).cpu()), 0)
+                probability[row] = torch.cat(
+                    (probability[row][:8+row].cpu(), torch.Tensor([0] * (len(start_prob)-(8+row))).cpu()), 0)
 
             index = torch.argmax(probability).item()
 
@@ -126,8 +138,10 @@ if __name__ == '__main__':
                 start_str = 0
                 end_str = 0
 
-            start_visualize.append((list(start_prob.cpu()), (start, end), (start_str, end_str)))
-            end_visualize.append((list(end_prob.cpu()), (start, end), (start_str, end_str)))
+            start_visualize.append(
+                (list(start_prob.cpu()), (start, end), (start_str, end_str)))
+            end_visualize.append(
+                (list(end_prob.cpu()), (start, end), (start_str, end_str)))
 
             rows.append([sample["guid"], sample['context'][start_str:end_str]])
 
@@ -138,8 +152,10 @@ if __name__ == '__main__':
     start_visualize = np.array(start_visualize)
     end_visualize = np.array(end_visualize)
 
-    start_probalilities, token_pos, str_pos = start_visualize[:,0], start_visualize[:,1], start_visualize[:,2]
-    end_probalilities, token_pos, str_pos = end_visualize[:,0], end_visualize[:,1], end_visualize[:,2]
+    start_probalilities, token_pos, str_pos = start_visualize[:,
+                                                              0], start_visualize[:, 1], start_visualize[:, 2]
+    end_probalilities, token_pos, str_pos = end_visualize[:,
+                                                          0], end_visualize[:, 1], end_visualize[:, 2]
 
     plt.plot(start_probalilities[idx], label="start probability")
     plt.plot(end_probalilities[idx], label="end probability")
@@ -164,7 +180,7 @@ if __name__ == '__main__':
     l = 100
     for i, (start, end) in enumerate(token_pos):
         h = max(h, end - start)
-        l = min(l ,end - start)
+        l = min(l, end - start)
         temp.append(end - start)
     plt.plot(temp)
     print(mean(temp))
@@ -189,8 +205,77 @@ if __name__ == '__main__':
     print(mu - 2.576*sigma/math.sqrt(len(temp)))
     print(mu + 2.576*sigma/math.sqrt(len(temp)))
 
-    dev_contexts, dev_questions, dev_answers = read_dev_klue("/content/klue-mrc-v1.1_dev.json")
+    dev_contexts, dev_questions, dev_answers = read_dev_klue(
+        "/content/klue-mrc-v1.1_dev.json")
     pred_answers = prediction(dev_contexts, dev_questions)
     print(pred_answers)
     em_score = em_evalutate(pred_answers, dev_answers)
     print(em_score)
+
+
+class exact_match():
+    def __init__(self, model, tokenizer, path) -> None:
+        self.model = model
+        self.tokenizer = tokenizer
+        self.path = path
+        self.contexts, self.questions, self.answers = read_dev_klue(path)
+
+    def read_dev_klue(self, path):
+        with open(path, 'rb') as f:
+            klue_dict = json.load(f)
+
+        contexts = []
+        questions = []
+        answers = []
+        for group in tqdm(klue_dict['data']):
+            for passage in group['paragraphs']:
+                context = passage['context']
+                for qa in passage['qas']:
+                    question = qa['question']
+                    temp_answer = []
+                    for answer in qa['answers']:
+                        temp_answer.append(answer['text'])
+                    if len(temp_answer) != 0:  # answers의 길이가 0 == 답변할 수 없는 질문
+                        contexts.append(context)
+                        questions.append(question)
+                        answers.append(temp_answer)
+
+        return contexts, questions, answers
+
+    def prediction(self, contexts, questions):
+        device = torch.device(
+            'cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+        self.model.to(device)
+        self.model.eval()
+
+        result = []
+
+        with torch.no_grad():
+            for context, question in zip(contexts, questions):
+                encodings = self.tokenizer(context, question, max_length=512, truncation=True,
+                                           padding="max_length", return_token_type_ids=False)
+                encodings = {key: torch.tensor([val])
+                             for key, val in encodings.items()}
+
+                input_ids = encodings["input_ids"].to(device)
+                attention_mask = encodings["attention_mask"].to(device)
+
+                outputs = self.model(input_ids, attention_mask=attention_mask)
+                start_logits, end_logits = outputs.start_logits, outputs.end_logits
+                token_start_index, token_end_index = start_logits.argmax(
+                    dim=-1), end_logits.argmax(dim=-1)
+                pred_ids = input_ids[0][token_start_index: token_end_index + 1]
+                pred = self.tokenizer.decode(pred_ids)
+                result.append(pred)
+
+        return result
+
+    def em_evalutate(self, prediction_answers, real_answers):
+        total = len(prediction_answers)
+        exact_match = 0
+        for prediction_answer, real_answer in zip(prediction_answers, real_answers):
+            if prediction_answer in real_answer:
+                exact_match += 1
+
+        return (exact_match/total) * 100
